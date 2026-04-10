@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account and profile settings",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string", "description": "Display name of the user" },
+        "avatar": { "type": "string", "description": "Base64 encoded avatar image" },
+        "slug": { "type": "string", "description": "Unique URL slug for the public page" },
+        "showSeparator": { "type": "boolean" },
+        "separatorAnimation": { "type": "string", "enum": ["none", "pulse", "rainbow", "flow"] },
+        "theme": {
+          "type": "object",
+          "properties": {
+            "backgroundColor": { "type": "string" },
+            "buttonColor": { "type": "string" },
+            "textAlign": { "type": "string", "enum": ["left", "center", "right"] }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["displayName", "slug"]
+    },
+    "Block": {
+      "title": "Page Block",
+      "description": "A single content block on the page",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["header", "text", "button", "image", "video", "socials", "form", "map", "stats"] },
+        "content": { "type": "object", "description": "Block-specific content data" },
+        "order": { "type": "number", "description": "Display order" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "order"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "users/{userId}/blocks/{blockId}": {
+      "schema": "Block",
+      "description": "Blocks belonging to a user's page"
+    }
+  }
+}

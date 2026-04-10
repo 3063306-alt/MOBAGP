@@ -1,0 +1,139 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - displayName: string (required, 1-50 chars)
+//   - avatar: string (optional, base64)
+//   - slug: string (required, unique-ish, 1-30 chars)
+//   - showSlug: boolean (optional)
+//   - showSeparator: boolean (optional)
+//   - theme: map (optional)
+//     - backgroundColor: string
+//     - buttonColor: string
+//     - textAlign: string (left/center/right)
+//   - createdAt: timestamp (required)
+//
+// Collection: blocks
+// Document ID: {userId} (parent)
+//   Subcollection: items
+//   Document ID: {blockId}
+//   Fields:
+//     - type: string (header/text/button/image/video/socials/form/map)
+//     - content: map (required)
+//     - order: number (required)
+//     - createdAt: timestamp (required)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "3063306@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidString(field, min, max) {
+      return request.resource.data[field] is string &&
+             request.resource.data[field].size() >= min &&
+             request.resource.data[field].size() <= max;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['displayName', 'slug', 'createdAt']) &&
+             isValidString('displayName', 1, 100) &&
+             isValidString('slug', 1, 50) &&
+             data.createdAt is timestamp &&
+             (!('avatar' in data) || data.avatar is string) &&
+             (!('avatarSize' in data) || data.avatarSize is number) &&
+             (!('avatarImageScale' in data) || data.avatarImageScale is number) &&
+             (!('avatarShape' in data) || data.avatarShape in ['circle', 'square', 'rectangle']) &&
+             (!('coverImage' in data) || data.coverImage is string) &&
+             (!('coverImagePosition' in data) || data.coverImagePosition is number) &&
+             (!('showSlug' in data) || data.showSlug is bool) &&
+             (!('showSeparator' in data) || data.showSeparator is bool) &&
+             (!('separatorAnimation' in data) || data.separatorAnimation in ['none', 'pulse', 'rainbow', 'flow']) &&
+             (!('theme' in data) || data.theme is map) &&
+             (!('seoTitle' in data) || data.seoTitle is string) &&
+             (!('seoDescription' in data) || data.seoDescription is string) &&
+             (!('qrCodeEnabled' in data) || data.qrCodeEnabled is bool) &&
+             (!('floatingContact' in data) || data.floatingContact is map) &&
+             (!('language' in data) || data.language in ['en', 'ru', 'az']) &&
+             (!('contactEmail' in data) || data.contactEmail is string) &&
+             (!('telegramBotToken' in data) || data.telegramBotToken is string) &&
+             (!('telegramChatId' in data) || data.telegramChatId is string);
+    }
+
+    function isValidBlock(data) {
+      return hasRequiredFields(['type', 'content', 'order', 'createdAt']) &&
+             data.type in [
+               'header', 'text', 'button', 'image', 'video', 
+               'socials', 'form', 'map', 'carousel', 'faq', 
+               'priceList', 'divider', 'spacer', 'testimonials', 
+               'countdown', 'file', 'stats'
+             ] &&
+             data.content is map &&
+             data.order is number &&
+             data.createdAt is timestamp &&
+             (!('column' in data) || data.column in ['left', 'right']);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Public read for profile pages
+      allow read: if true;
+      
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /blocks/{userId}/items/{blockId} {
+      // Public read for profile pages
+      allow read: if true;
+
+      allow create: if isOwner(userId) && isValidBlock(request.resource.data);
+      allow update: if (isOwner(userId) && isValidBlock(request.resource.data)) ||
+                     (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clicks']) &&
+                      request.resource.data.clicks == (resource.data.get('clicks', 0) + 1));
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --animate-rainbow: rainbow 5s linear infinite;
+
+  @keyframes rainbow {
+    0% { background-color: #ff0000; }
+    12.5% { background-color: #ff8000; }
+    25% { background-color: #ffff00; }
+    37.5% { background-color: #00ff00; }
+    50% { background-color: #00ffff; }
+    62.5% { background-color: #0000ff; }
+    75% { background-color: #8000ff; }
+    87.5% { background-color: #ff00ff; }
+    100% { background-color: #ff0000; }
+  }
+}
